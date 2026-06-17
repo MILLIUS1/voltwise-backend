@@ -33,12 +33,13 @@ def get_energy_readings(db: Session = Depends(get_db)):
 
 @router.get("/current")
 def get_current_usage(db: Session = Depends(get_db)):
-    latest = db.query(EnergyReading).order_by(EnergyReading.timestamp.desc()).first()
+    total_usage = db.query(
+        func.sum(EnergyReading.power_consumed)
+    ).scalar() or 0
 
-    if not latest:
-        return {"current_usage": 0}
-
-    return {"current_usage": latest.power_consumed}
+    return {
+        "current_usage": total_usage
+    }
 
 
 @router.get("/daily")
