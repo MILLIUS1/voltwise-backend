@@ -5,9 +5,9 @@ from sqlalchemy import func
 from app.database.database import get_db
 from app.models.grid import GridStatus
 from app.models.battery import BatteryStatus
+from app.models.alert import Alert
 from app.models.energy import EnergyReading
 from app.models.appliance import Appliance
-from app.models.alert import Alert
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -18,9 +18,9 @@ def dashboard(db: Session = Depends(get_db)):
     battery = db.query(BatteryStatus).order_by(BatteryStatus.id.desc()).first()
     alert = db.query(Alert).order_by(Alert.id.desc()).first()
 
-    current_reading = db.query(EnergyReading).order_by(
-        EnergyReading.id.desc()
-    ).first()
+    current_usage = db.query(
+        func.sum(EnergyReading.power_consumed)
+    ).scalar() or 0
 
     today_usage = db.query(
         func.sum(EnergyReading.power_consumed)
@@ -35,7 +35,7 @@ def dashboard(db: Session = Depends(get_db)):
     return {
         "grid_status": grid.is_available if grid else False,
         "battery_level": battery.battery_level if battery else 0,
-        "current_usage": current_reading.power_consumed if current_reading else 0,
+        "current_usage": current_usage,
         "active_appliances": active,
         "total_appliances": total,
         "today_energy_usage": today_usage,
