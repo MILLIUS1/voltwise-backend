@@ -23,6 +23,16 @@ def is_allowed_to_turn_on(priority: str, battery_level: int) -> bool:
     return True
 
 
+@router.get("/")
+def get_appliances(db: Session = Depends(get_db)):
+    return db.query(Appliance).all()
+
+
+@router.get("")
+def get_appliances_no_slash(db: Session = Depends(get_db)):
+    return db.query(Appliance).all()
+
+
 @router.patch("/{appliance_id}")
 def update_appliance(
     appliance_id: int,
@@ -45,7 +55,7 @@ def update_appliance(
         appliance.power_rating = update.power_rating
 
     if update.priority is not None:
-        appliance.priority = update.priority
+        appliance.priority = update.priority.upper()
 
     if update.status is not None:
         if update.status:
