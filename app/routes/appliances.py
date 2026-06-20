@@ -13,15 +13,12 @@ router = APIRouter(prefix="/appliances", tags=["Appliances"])
 def is_allowed_to_turn_on(priority: str, battery_level: float) -> bool:
     priority = priority.upper()
 
+    # Emergency mode only: battery 10% or below
     if battery_level <= 10:
         return priority == "HIGH"
 
-    if battery_level <= 20:
-        return priority == "HIGH"
-
-    if battery_level <= 50:
-        return priority in ["HIGH", "MEDIUM"]
-
+    # Conservation and critical modes only generate alerts;
+    # they do not block manual appliance activation.
     return True
 
 
@@ -31,7 +28,7 @@ def get_latest_grid_available(db: Session) -> bool:
     if not latest_grid:
         return True
 
-    return latest_grid.is_available is True
+    return bool(latest_grid.is_available)
 
 
 def get_latest_battery_level(db: Session) -> float:
@@ -83,6 +80,7 @@ def update_appliance(
                 appliance.status = True
             else:
                 battery_level = get_latest_battery_level(db)
+
                 appliance.status = is_allowed_to_turn_on(
                     str(appliance.priority),
                     battery_level
