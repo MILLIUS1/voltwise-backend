@@ -3,12 +3,14 @@ from sqlalchemy.orm import Session
 
 from app.database.database import get_db
 from app.models.appliance import Appliance
+from app.models.grid import GridStatus
+from app.models.battery import BatteryStatus
 from app.schemas.appliance import ApplianceUpdate
 
 router = APIRouter(prefix="/appliances", tags=["Appliances"])
 
 
-def is_allowed_to_turn_on(priority: str, battery_level: int) -> bool:
+def is_allowed_to_turn_on(priority: str, battery_level: float) -> bool:
     priority = priority.upper()
 
     if battery_level <= 10:
@@ -21,6 +23,24 @@ def is_allowed_to_turn_on(priority: str, battery_level: int) -> bool:
         return priority in ["HIGH", "MEDIUM"]
 
     return True
+
+
+def get_latest_grid_available(db: Session) -> bool:
+    latest_grid = db.query(GridStatus).order_by(GridStatus.id.desc()).first()
+
+    if not latest_grid:
+        return True
+
+    return latest_grid.is_available is True
+
+
+def get_latest_battery_level(db: Session) -> float:
+    latest_battery = db.query(BatteryStatus).order_by(BatteryStatus.id.desc()).first()
+
+    if not latest_battery:
+        return 100
+
+    return latest_battery.battery_level
 
 
 @router.get("/")
@@ -46,8 +66,6 @@ def update_appliance(
     if not appliance:
         raise HTTPException(status_code=404, detail="Appliance not found")
 
-    battery_level = 10
-
     if update.name is not None:
         appliance.name = update.name
 
@@ -59,10 +77,16 @@ def update_appliance(
 
     if update.status is not None:
         if update.status:
-            appliance.status = is_allowed_to_turn_on(
-                str(appliance.priority),
-                battery_level
-            )
+            grid_available = get_latest_grid_available(db)
+
+            if grid_available:
+                appliance.status = True
+            else:
+                battery_level = get_latest_battery_level(db)
+                appliance.status = is_allowed_to_turn_on(
+                    str(appliance.priority),
+                    battery_level
+                )
         else:
             appliance.status = False
 
